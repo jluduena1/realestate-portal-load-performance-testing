@@ -1,0 +1,51 @@
+config:
+  plugins:
+      metrics-by-endpoint:
+        useOnlyRequestNames: true
+  target: "https://www.zonaprop.com.ar/emprendimientos"
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: 'warm up'
+    - duration: 60
+      arrivalRate: 10
+      rampTo: 50
+      name: 'hot sale'
+  variables:
+    clientId: "40130544"
+    portal: "https://www.zonaprop.com.ar"
+    city: ["1001982", "1001982", "1002000"]
+  ensure:
+    p99: 1300
+scenarios:
+  - name: "Recomendador user-item" 
+    flow:
+      - get:
+          url: "{{ portal }}/rp-api/labs/v1/recommended?isMobile=false&page=ficha&limit=20&action=&isDevelop=true&userId={{ clientId }}"
+          expect: 
+            - statusCode: 200
+  - name: "Recomendador listos para habitar / destacados"
+    flow:
+      - get:
+          url: "{{ portal }}/rplis-api/postings?onlyPostings=true"
+          expect:
+            - statusCode: 200
+  - name: "Listado de emprendimientos con ubicaciones"
+    flow: 
+      - loop:
+        - post:
+            url: "{{ portal }}/rplis-api/postings"
+            json:
+              q: ""
+              pagina: 2
+              sort: "relevance"
+              tipoDeOperacion: "desarrollosURL"
+              city: "{{ $loopElement }}"
+            expect: 
+              - statusCode: 200
+            capture:
+              - json: $.totalPosting
+                as: postingPorUbicacion
+        over:
+          - 1001982
+          - 1004697
